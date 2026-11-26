@@ -134,6 +134,7 @@ dialog::backdrop{background:rgba(0,0,0,.35)}
   <div class="vbar">
     <div class="seg" id="seg" role="group" aria-label="出力形式"><button data-out="simple">簡易柱状図</button><button data-out="sheet">A4 シート</button></div>
     <label class="chk"><input type="checkbox" id="qSoil">土層あり</label>
+    <label class="note" id="qTickL">深度表示 <select class="mini" style="width:8.5em" id="qTick"><option value="0">境界のみ</option><option value="1">1m 毎</option><option value="5">5m 毎</option></select></label>
   </div>
   <div class="vbar">
     <button class="pri" id="bDxf">この地点を DXF 出力</button>
@@ -202,7 +203,7 @@ function blankPoint(n) { return { info: { name: 'No.' + n, loc: '', elev: '', da
 function defaults() {
   return {
     common: { job: '令和8年度 ○○地区 地質調査業務（サンプル）', company: '株式会社ナイバ', method: 'ラムサウンディング（63.5kg・落下高50cm・貫入量20cm）',
-      k: '0.04', alpha: '1.0', scale: '50', showLayers: true, showN: false, gmax: '50', graph: 'line', gval: 'nd', gRef: false, out: 'simple', sBase: 'elev', ebase: 'T.P.', sLabel: 'over', sGap: '5' },
+      k: '0.04', alpha: '1.0', scale: '50', showLayers: true, showN: false, gmax: '50', graph: 'line', gval: 'nd', gRef: false, out: 'simple', sBase: 'elev', ebase: 'T.P.', sLabel: 'over', sGap: '5', sTick: '1', sBound: true, sGridH: true },
     cur: 0, points: [samplePoint()]
   };
 }
@@ -211,6 +212,7 @@ try { S = JSON.parse(localStorage.getItem(KEY)) || defaults(); } catch (e) { S =
 if (!S.points || !S.points.length) S = defaults();
 if (!S.common.gval) { S.common.gval = 'nd'; S.common.graph = 'line'; S.common.gRef = false; }
 if (!S.common.out) Object.assign(S.common, { out: 'simple', sBase: 'elev', ebase: 'T.P.', sLabel: 'over', sGap: '5' });
+if (S.common.sTick === undefined) Object.assign(S.common, { sTick: '1', sBound: true, sGridH: true });
 const P = () => S.points[S.cur];
 let saveT;
 function persist() { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }, 300); }
@@ -491,11 +493,20 @@ function buildSimple(pt, C, ox = 0) {
       const lb = Math.min(l.d, L); if (lb <= lt) continue;
       hatch(hp, 0, SX, Y(lt), Y(lb), patOf(l));
       if (lb < L) p.L(X(0), Y(lb), X(SX), Y(lb), 'WAKU');
-      dl.add(lb); lt = lb;
+      if (C.sBound !== false) dl.add(lb);
+      lt = lb;
     }
   }
-  const dlx = soil ? -0.06 : gx0 - 0.06;
-  [...dl].sort((a, b) => a - b).forEach(d => p.T(X(dlx), Y(d), f2(d), 0.24, 2, 2, null, 'MOJI'));
+  const dlx = soil ? -0.06 : gx0 - 0.06, ex = soil ? 0 : gx0;
+  const tk = C.sTick === '5' ? 5 : C.sTick === '1' ? 1 : 0;
+  if (tk) for (let d = tk; d < L - 1e-9; d += tk) {
+    if (C.sGridH !== false) p.L(X(gx0), Y(d), X(gx1), Y(d), 'HOJO');
+    p.L(X(ex - 0.06), Y(d), X(ex), Y(d), 'WAKU');
+    if (![...dl].some(q => Math.abs(q - d) < 0.005)) dl.add(d);
+  }
+  const lab = [...dl].sort((a, b) => a - b), ly = lab.map(Y);
+  for (let it = 0; it < 30; it++) for (let i = 0; i + 1 < ly.length; i++) { const gap = ly[i] - ly[i + 1]; if (gap < 0.27) { const m = (0.27 - gap) / 2; ly[i] += m; ly[i + 1] -= m; } }
+  lab.forEach((d, i) => p.T(X(dlx - (tk ? 0.04 : 0)), ly[i], f2(d), 0.24, 2, 2, null, 'MOJI'));
   /* 値 */
   const pts = rows.map(r => ({ r, v: r[gv], x: gx0 + Math.min(r[gv], gmax) * sx, y: Y((r.top + r.bot) / 2) }));
   if (C.gRef && gv !== 'ndm') {
@@ -791,15 +802,19 @@ function renderSet() {
     <label for="s_sBase">縦位置の基準</label><select id="s_sBase" data-k="sBase"><option value="elev">孔口標高に合わせる（Y = 標高）</option><option value="zero">孔口を Y = 0 に置く</option></select>
     <label for="s_ebase">標高の表記</label><input id="s_ebase" data-k="ebase" value="${esc(C.ebase ?? 'T.P.')}">
     <label for="s_sLabel">数値ラベル</label><select id="s_sLabel" data-k="sLabel"><option value="over">最大値超えのみ（→62 の形）</option><option value="all">全点（20cm 間隔では重なりやすい）</option><option value="none">なし</option></select>
+    <label for="s_sTick">深度表示</label><select id="s_sTick" data-k="sTick"><option value="0">土層境界のみ</option><option value="1">1m 毎</option><option value="5">5m 毎</option></select>
+    <span></span><label class="chk"><input type="checkbox" data-k="sBound" ${C.sBound !== false ? 'checked' : ''}>土層境界の深度も表示（土層ありのとき）</label>
+    <span></span><label class="chk"><input type="checkbox" data-k="sGridH" ${C.sGridH !== false ? 'checked' : ''}>グラフに深度の横補助線を引く</label>
     <label for="s_sGap">全地点の間隔 (m)</label><input id="s_sGap" data-k="sGap" value="${esc(C.sGap ?? '5')}" inputmode="decimal">
     <p class="note full">「全地点を DXF」で地点を横に並べるときの間隔です。</p>`;
-  $('#s_scale').value = C.scale; $('#s_gmax').value = C.gmax; $('#s_graph').value = C.graph; $('#s_gval').value = C.gval || 'nd'; $('#s_sBase').value = C.sBase || 'elev'; $('#s_sLabel').value = C.sLabel || 'over';
+  $('#s_scale').value = C.scale; $('#s_gmax').value = C.gmax; $('#s_graph').value = C.graph; $('#s_gval').value = C.gval || 'nd'; $('#s_sBase').value = C.sBase || 'elev'; $('#s_sLabel').value = C.sLabel || 'over'; $('#s_sTick').value = C.sTick ?? '1';
 }
 $('#fSet').addEventListener('input', e => {
   const t = e.target, k = t.dataset.k; if (!k) return;
   S.common[k] = t.type === 'checkbox' ? t.checked : t.value;
   if (['k', 'alpha', 'showN', 'scale'].includes(k)) renderData();
   if (k === 'showLayers') $('#qSoil').checked = t.checked;
+  if (k === 'sTick') $('#qTick').value = t.value;
   schedule();
 });
 
@@ -809,6 +824,7 @@ function schedule() { persist(); clearTimeout(prevT); prevT = setTimeout(renderP
 function renderPreview() {
   document.querySelectorAll('#seg button').forEach(b => b.classList.toggle('on', b.dataset.out === S.common.out));
   $('#qSoil').checked = !!S.common.showLayers;
+  $('#qTick').value = S.common.sTick ?? '1'; $('#qTickL').hidden = S.common.out !== 'simple';
   if (S.common.out === 'simple') {
     const E = buildSimple(P(), S.common), b = bboxOf(E), pad = 0.25, bb = [b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad], w = bb[2] - bb[0], h = bb[3] - bb[1];
     $('#pages').innerHTML = `<div class="sheet" style="aspect-ratio:${w.toFixed(3)}/${h.toFixed(3)};width:min(100%, calc(76vh * ${(w / h).toFixed(4)}))">${toSVG(E, { bb, sw: 0.025 })}</div>`;
@@ -819,6 +835,7 @@ function renderPreview() {
 }
 $('#seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.common.out = b.dataset.out; schedule(); renderPreview(); });
 $('#qSoil').onchange = e => { S.common.showLayers = e.target.checked; renderSet(); schedule(); };
+$('#qTick').onchange = e => { S.common.sTick = e.target.value; renderSet(); schedule(); };
 function renderAll() { renderPts(); renderData(); renderLayers(); renderInfo(); renderSet(); renderPreview(); persist(); }
 
 /* 出力 */
