@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ラムサウンディング柱状図</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 現場技術者の道具。静かで正確、図面のような細い罫線。
+   IDEA: 方眼のトレーシングペーパーに描く柱状図。プレビュー自体が成果物。
+   PICTURE: 右側の A4 シート（そのまま DXF になる図）。
+   COLOUR and TYPE: 白地＋墨、アクセントは測量ペンの青 #1f5fbf。Noto Sans JP。
+   LAYOUT: 左に入力（地点→データ→土質→情報→設定）、右に図面。600px 以下は縦積み。 */
+:root{color-scheme:light dark;--bg:light-dark(#f4f5f2,#16181a);--panel:light-dark(#fff,#1f2225);--ink:light-dark(#1b1d1f,#e8e9e6);--sub:light-dark(#62676c,#a3a9ad);--line:light-dark(#d9dcd6,#33383c);--acc:light-dark(#1f5fbf,#78a8ff);--accbg:light-dark(#e8f0fc,#1c2a40);--warn:light-dark(#b3261e,#ff8a80)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Noto Sans JP",system-ui,sans-serif;overflow-x:clip}
+header{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding:12px max(2vw,14px);background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.02em}
+h1 small{font-weight:400;color:var(--sub);font-size:13px;margin-left:8px}
+.sp{flex:1}
+button,.btn{font:inherit;font-size:14px;min-height:38px;padding:6px 14px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;white-space:nowrap}
+button:hover{border-color:var(--acc)}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:500}
+button.sm{min-height:32px;padding:3px 10px;font-size:13px}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{display:grid;grid-template-columns:minmax(0,520px) minmax(0,1fr);gap:16px;padding:16px max(2vw,14px);align-items:start}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.pts{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px}
+.chip{border-radius:999px;padding:4px 14px;min-height:34px}
+.chip.on{background:var(--accbg);border-color:var(--acc);color:var(--acc);font-weight:700}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:0 -14px 12px;padding:0 14px;overflow-x:auto}
+.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:6px 12px}
+.tabs button.on{border-bottom-color:var(--acc);color:var(--acc);font-weight:700}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:8px 0}
+.note{color:var(--sub);font-size:13px;margin:6px 0}
+.grid{max-height:min(60vh,620px);overflow:auto;border:1px solid var(--line);border-radius:6px}
+table.g{border-collapse:collapse;width:100%;font-size:14px}
+.g th{position:sticky;top:0;background:var(--panel);font-weight:500;font-size:12px;color:var(--sub);padding:4px;border-bottom:1px solid var(--line);text-align:center;line-height:1.25;z-index:1}
+.g td{border-bottom:1px solid var(--line);padding:0}
+.g td.c{text-align:right;padding:0 8px;font-variant-numeric:tabular-nums;color:var(--sub);white-space:nowrap}
+.g td.i{width:30px;text-align:center;color:var(--sub);font-size:12px}
+.g input{width:100%;border:0;background:transparent;color:var(--ink);font:inherit;font-size:16px;padding:6px 6px;text-align:right;font-variant-numeric:tabular-nums;min-height:34px}
+.g input.t{text-align:left}
+.g input::placeholder{color:var(--sub);opacity:.4}
+.g tr:focus-within td{background:var(--accbg)}
+.g td.x button{border:0;background:none;color:var(--sub);min-height:30px;padding:0 8px}
+.form{display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:8px 10px;align-items:center}
+.form label{font-size:13px;color:var(--sub)}
+.form input,.form select,.form textarea,.mini{font:inherit;font-size:16px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);width:100%;min-height:38px}
+.mini{width:5.5em;min-height:34px;padding:4px 6px}
+.form .full{grid-column:1/-1}
+h3{font-size:14px;margin:14px 0 6px}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--ink)}
+.chk input{width:18px;height:18px;min-height:0}
+.view{position:sticky;top:76px}
+.vbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.pages{display:flex;flex-direction:column;gap:14px;max-height:calc(100vh - 150px);overflow:auto;padding:4px}
+.paper{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15),0 6px 24px rgba(0,0,0,.08);aspect-ratio:210/297;width:100%;max-width:720px;margin:0 auto}
+.paper svg,.sheet svg{display:block;width:100%;height:100%}
+.sheet{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.15),0 6px 24px rgba(0,0,0,.08);margin:0 auto}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;min-height:38px}
+.seg button.on{background:var(--acc);color:#fff;font-weight:500}
+.sum{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:13px;color:var(--sub)}
+.sum b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);padding:18px;width:min(760px,94vw);max-height:90vh}
+dialog::backdrop{background:rgba(0,0,0,.35)}
+.prev{overflow:auto;max-height:240px;border:1px solid var(--line);border-radius:6px;margin:8px 0}
+.prev table{border-collapse:collapse;font-size:12px}
+.prev td{border:1px solid var(--line);padding:2px 6px;white-space:nowrap}
+.prev tr.hd td{background:var(--accbg);font-weight:700}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--panel);padding:10px 16px;border-radius:8px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;z-index:20}
+.toast.on{opacity:1}
+@media(prefers-reduced-motion:reduce){.toast{transition:none}}
+@media(max-width:1000px){main{grid-template-columns:minmax(0,1fr)}.view{position:static}.pages{max-height:none}}
+@media(max-width:600px){header{position:static}.form{grid-template-columns:minmax(0,1fr)}h1 small{display:block;margin:0}}
+</style>
+</head>
+<body>
+<header>
+  <h1>ラムサウンディング柱状図<small>Nd値の表・グラフを入力して DXF に出力</small></h1>
+  <span class="sp"></span>
+  <button id="bOpen">プロジェクトを開く</button>
+  <button id="bSave">プロジェクト保存</button>
+  <input type="file" id="fProj" accept=".json" hidden>
+</header>
+
+<main>
+<section class="card">
+  <div class="pts" id="pts"></div>
+  <div class="tabs" role="tablist" id="tabs">
+    <button data-t="data" class="on">データ</button>
+    <button data-t="layer">土質・記事</button>
+    <button data-t="info">地点情報</button>
+    <button data-t="set">共通設定</button>
+  </div>
+
+  <div data-p="data">
+    <div class="row">
+      <button class="sm" id="bImport">Excel / CSV 読込</button>
+      <input type="file" id="fXls" accept=".xlsx,.xlsm,.xls,.csv,.txt" hidden>
+      <button class="sm" id="bAdd1">＋1行</button>
+      <button class="sm" id="bAdd10">＋10行</button>
+      <button class="sm" id="bClear">全削除</button>
+    </div>
+    <div class="row note">
+      深度を振り直す：開始 GL-<input class="mini" id="rnStart" value="0.00" inputmode="decimal">m
+      刻み<input class="mini" id="rnStep" value="0.20" inputmode="decimal">m
+      <button class="sm" id="bRenum">実行</button>
+    </div>
+    <div class="grid"><table class="g" id="gData"></table></div>
+    <p class="note">Excel の範囲をコピーして任意のセルに貼り付けると、その位置から下・右へ流し込みます（列順：深度・打撃回数・貫入量・トルク）。Enter で下のセルへ移動、最終行では行を追加します。</p>
+    <div class="sum" id="sum"></div>
+  </div>
+
+  <div data-p="layer" hidden>
+    <p class="note">下端深度ごとに推定土質を入力します。簡易柱状図では土質柱状の模様（自動判定または手動選択）と境界深度、A4 シートでは「標高・層厚・深度・推定土質・記事」欄に描画されます。出力の有無は右上の「土層あり」で切り替えます。</p>
+    <div class="row"><button class="sm" id="bLAdd">＋層を追加</button></div>
+    <div class="grid"><table class="g" id="gLayer"></table></div>
+  </div>
+
+  <div data-p="info" hidden>
+    <div class="form" id="fInfo"></div>
+  </div>
+
+  <div data-p="set" hidden>
+    <div class="form" id="fSet"></div>
+  </div>
+</section>
+
+<section class="view">
+  <div class="vbar">
+    <div class="seg" id="seg" role="group" aria-label="出力形式"><button data-out="simple">簡易柱状図</button><button data-out="sheet">A4 シート</button></div>
+    <label class="chk"><input type="checkbox" id="qSoil">土層あり</label>
+  </div>
+  <div class="vbar">
+    <button class="pri" id="bDxf">この地点を DXF 出力</button>
+    <button id="bDxfAll">全地点を DXF（1ファイル）</button>
+    <button id="bCsv">計算表 CSV</button>
+    <span class="note" id="dlNote"></span>
+  </div>
+  <div class="pages" id="pages"></div>
+</section>
+</main>
+
+<dialog id="dImp">
+  <h3 style="margin-top:0">Excel / CSV の取込</h3>
+  <div class="row">
+    <label class="note">シート <select class="mini" style="width:12em" id="iSheet"></select></label>
+    <label class="note">見出し行 <input class="mini" id="iHead" type="number" min="0"></label>
+    <span class="note">（0 = 見出しなし）</span>
+  </div>
+  <div class="prev" id="iPrev"></div>
+  <div class="form" id="iMap"></div>
+  <div class="row">
+    <label class="chk"><input type="checkbox" id="iAuto">深度列が無い／空欄の行は開始深度から 0.20m 刻みで付番</label>
+  </div>
+  <div class="row">
+    <label class="note">取込先
+      <select class="mini" style="width:14em" id="iDest">
+        <option value="replace">この地点のデータを置換</option>
+        <option value="append">この地点の末尾に追加</option>
+        <option value="new">新しい地点として追加</option>
+      </select></label>
+  </div>
+  <div class="row" style="justify-content:flex-end">
+    <button id="iCancel">キャンセル</button><button class="pri" id="iOk">取り込む</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/encoding-japanese@2.5.0/encoding.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.core.min.js"></script>
+<script>
+{
+/* ---------------- 状態 ---------------- */
+const KEY = 'ramsounding-v1';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => { if (v === null || v === undefined) return null; const s = String(v).trim().replace(/[０-９．－]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)); if (s === '') return null; const n = Number(s); return isFinite(n) ? n : null; };
+const f2 = v => v == null ? '' : (Math.round(v * 100) / 100).toFixed(2);
+const fN = v => { if (v == null) return ''; const r = Math.round(v * 10) / 10; return Number.isInteger(r) ? String(r) : r.toFixed(1); };
+
+function samplePoint() {
+  const ndm = [3,2,2,3,4, 2,1,1,2,2, 1,2,2,3,5, 7,9,11,12,10, 13,15,14,16,18, 17,15,19,22,24, 26,25,28,31,35, 38,42,47,55];
+  const rows = ndm.map((b, i) => ({ d: f2((i + 1) * 0.2), b: String(b), p: '', mv: b > 5 ? String(Math.round((4 + i * 0.9) * 10) / 10) : '' }));
+  return {
+    info: { name: 'No.1（サンプル）', loc: '松山市土居田町 地内', elev: '12.35', date: '2026-11-20', weather: '晴れ', tester: '', gwl: '1.85', end: '貫入不能' },
+    rows,
+    layers: [
+      { d: '0.60', soil: '盛土', note: '礫混じり砂、締まり緩い' },
+      { d: '2.80', soil: '粘性土', note: 'Nd=1～3、軟らかい' },
+      { d: '5.20', soil: '砂質土', note: '中位～密' },
+      { d: '7.80', soil: '砂礫', note: 'Nd 急増、礫当たり' }
+    ]
+  };
+}
+function blankPoint(n) { return { info: { name: 'No.' + n, loc: '', elev: '', date: '', weather: '', tester: '', gwl: '', end: '' }, rows: [], layers: [] }; }
+function defaults() {
+  return {
+    common: { job: '令和8年度 ○○地区 地質調査業務（サンプル）', company: '株式会社ナイバ', method: 'ラムサウンディング（63.5kg・落下高50cm・貫入量20cm）',
+      k: '0.04', alpha: '1.0', scale: '50', showLayers: true, showN: false, gmax: '50', graph: 'line', gval: 'nd', gRef: false, out: 'simple', sBase: 'elev', ebase: 'T.P.', sLabel: 'over', sGap: '5' },
+    cur: 0, points: [samplePoint()]
+  };
+}
+let S;
+try { S = JSON.parse(localStorage.getItem(KEY)) || defaults(); } catch (e) { S = defaults(); }
+if (!S.points || !S.points.length) S = defaults();
+if (!S.common.gval) { S.common.gval = 'nd'; S.common.graph = 'line'; S.common.gRef = false; }
+if (!S.common.out) Object.assign(S.common, { out: 'simple', sBase: 'elev', ebase: 'T.P.', sLabel: 'over', sGap: '5' });
+const P = () => S.points[S.cur];
+let saveT;
+function persist() { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {} }, 300); }
+
+/* ---------------- 計算 ---------------- */
+function computed(pt, C) {
+  const k = num(C.k) ?? 0.04, a = num(C.alpha) ?? 1;
+  const rs = pt.rows.map(r => ({ d: num(r.d), b: num(r.b), p: num(r.p), mv: num(r.mv) })).filter(r => r.d != null && r.b != null).sort((x, y) => x.d - y.d);
+  let prev = null;
+  return rs.map(r => {
+    const pen = r.p && r.p > 0 ? r.p : 200;
+    const top = prev != null ? prev : Math.max(0, r.d - pen / 1000);
+    prev = r.d;
+    const ndm = r.b * 200 / pen;
+    const nd = Math.max(0, ndm - k * (r.mv || 0));
+    return { top, bot: r.d, b: r.b, pen, mv: r.mv, ndm, nd, n: nd * a };
+  });
+}
+function calcRow(r, C) {
+  const b = num(r.b); if (b == null) return null;
+  const p = num(r.p); const pen = p && p > 0 ? p : 200;
+  const ndm = b * 200 / pen, nd = Math.max(0, ndm - (num(C.k) ?? 0.04) * (num(r.mv) || 0));
+  return { ndm, nd, n: nd * (num(C.alpha) ?? 1) };
+}
+
+/* ---------------- 作図（mm, 原点左下, A4縦） ---------------- */
+const tw = (s, h) => { let w = 0; for (const ch of String(s)) { const c = ch.codePointAt(0); w += (c < 0x80 || (c >= 0xFF61 && c <= 0xFF9F)) ? 0.62 * h : 1.15 * h; } return w; };
+function wrapText(s, maxW, h) {
+  const out = [];
+  for (const para of String(s).split(/\n/)) {
+    let line = '';
+    for (const ch of para) { if (tw(line + ch, h) > maxW && line) { out.push(line); line = ch; } else line += ch; }
+    out.push(line);
+  }
+  return out.filter((l, i, a) => l !== '' || a.length === 1);
+}
+function Pen() {
+  const E = [];
+  return {
+    E,
+    L(x1, y1, x2, y2, ly = 'FRAME', c, lt) { E.push({ t: 'L', x1, y1, x2, y2, ly, c, lt }); },
+    R(x1, y1, x2, y2, ly, c) { this.L(x1, y1, x2, y1, ly, c); this.L(x2, y1, x2, y2, ly, c); this.L(x2, y2, x1, y2, ly, c); this.L(x1, y2, x1, y1, ly, c); },
+    S(x1, y1, x2, y2, ly, c) { E.push({ t: 'S', x1, y1, x2, y2, ly, c }); },
+    C(x, y, r, ly, c) { E.push({ t: 'C', x, y, r, ly, c }); },
+    D(x, y, r, ly, c) { E.push({ t: 'D', x, y, r, ly, c }); },
+    T(x, y, s, h, ha = 0, va = 0, maxw, ly = 'TEXT', c) {
+      s = String(s ?? ''); if (!s) return;
+      let wf = 1; if (maxw) { const w = tw(s, h); if (w > maxw) wf = Math.max(0.45, maxw / w); }
+      E.push({ t: 'T', x, y, s, h, ha, va, wf, ly, c });
+    }
+  };
+}
+const GV = { nd: '修正Nd値', ndm: '測定Ndm', n: '換算N値' };
+const X0 = 20, X1 = 200, YT = 287, YB = 10, TITLE_B = 279, INFO_B = 254, HEAD_B = 242, FOOT_T = 16;
+
+function columns(C) {
+  const cols = [{ k: 'scale', w: 9, l: ['標尺', '(m)'] }];
+  if (C.showLayers) cols.push({ k: 'elev', w: 12, l: ['標高', '(m)'] }, { k: 'thick', w: 10, l: ['層厚', '(m)'] }, { k: 'ldep', w: 11, l: ['深度', '(m)'] }, { k: 'soil', w: 17, l: ['推定', '土質'] }, { k: 'note', w: 25, l: ['記事'] });
+  cols.push({ k: 'dep', w: 12, l: ['測定深度', '(m)'] }, { k: 'ndm', w: 11, l: ['打撃回数', 'Ndm'] }, { k: 'mv', w: 12, l: ['トルク', 'Mv(N・m)'] }, { k: 'nd', w: 10, l: ['修正', 'Nd'] });
+  if (C.showN) cols.push({ k: 'n', w: 10, l: ['換算', 'N値'] });
+  const used = cols.reduce((s, c) => s + c.w, 0);
+  cols.push({ k: 'graph', w: (X1 - X0) - used, l: ['Nd値'] });
+  let x = X0; for (const c of cols) { c.x = x; x += c.w; c.x2 = x; }
+  return cols;
+}
+
+function buildSheets(pt, C) {
+  const scale = num(C.scale) || 50, mpm = 1000 / scale;
+  const per = Math.floor((HEAD_B - FOOT_T) / mpm);
+  const rows = computed(pt, C);
+  const layers = pt.layers.map(l => ({ d: num(l.d), soil: l.soil || '', note: l.note || '' })).filter(l => l.d != null).sort((a, b) => a.d - b.d);
+  const gwl = num(pt.info.gwl), elev = num(pt.info.elev);
+  const endD = rows.length ? rows[rows.length - 1].bot : 0;
+  const total = Math.max(endD, layers.length ? layers[layers.length - 1].d : 0, gwl || 0, 1);
+  const pages = Math.max(1, Math.ceil(total / per - 1e-9));
+  const cols = columns(C), col = Object.fromEntries(cols.map(c => [c.k, c]));
+  const gmax = num(C.gmax) || 50, gstep = gmax <= 20 ? 5 : 10;
+  const g = col.graph, gx0 = g.x + 2, gx1 = g.x2 - 3, sx = (gx1 - gx0) / gmax;
+  const k = num(C.k) ?? 0.04, al = num(C.alpha) ?? 1, gv = GV[C.gval] ? C.gval : 'nd';
+  const out = [];
+  for (let pg = 0; pg < pages; pg++) {
+    const p = Pen(), top = pg * per, bot = top + per;
+    const Y = d => HEAD_B - (d - top) * mpm;
+    const yBot = Y(bot);
+    const inPg = d => d >= top - 1e-9 && d <= bot + 1e-9;
+    /* 外枠・タイトル */
+    p.R(X0, YB, X1, YT, 'FRAME');
+    p.L(X0, TITLE_B, X1, TITLE_B); p.L(X0, INFO_B, X1, INFO_B); p.L(X0, HEAD_B, X1, HEAD_B); p.L(X0, FOOT_T, X1, FOOT_T);
+    p.T(110, 283, 'ラムサウンディング試験結果', 4.5, 1, 2);
+    if (pages > 1) p.T(X1 - 2, 283, `${pg + 1} / ${pages}`, 2.5, 2, 2);
+    /* 情報欄 */
+    const I = pt.info, rh = (TITLE_B - INFO_B) / 5, lw = 20, vw = 70;
+    const cells = [
+      [['業務名', C.job, true]],
+      [['調査地点', I.name], ['調査位置', I.loc]],
+      [['孔口標高', elev != null ? `${f2(elev)} m` : I.elev], ['調査年月日', I.date]],
+      [['試験者', I.tester], ['孔内水位', gwl != null ? `GL-${f2(gwl)} m` : I.gwl]],
+      [['試験方法', C.method], ['天候', I.weather]]
+    ];
+    cells.forEach((r, i) => {
+      const y1 = TITLE_B - i * rh, y0 = y1 - rh, ym = (y0 + y1) / 2;
+      if (i) p.L(X0, y1, X1, y1, 'FRAME');
+      r.forEach(([lab, val, span], j) => {
+        const x = X0 + j * (lw + vw);
+        p.L(x + lw, y0, x + lw, y1, 'FRAME'); if (j) p.L(x, y0, x, y1, 'FRAME');
+        p.T(x + lw / 2, ym, lab, 2.2, 1, 2, lw - 2);
+        p.T(x + lw + 2, ym, val, 2.2, 0, 2, (span ? 160 : vw) - 4);
+      });
+    });
+    /* 列見出し・縦罫 */
+    for (const c of cols) {
+      if (c.x > X0) p.L(c.x, FOOT_T, c.x, INFO_B, 'FRAME');
+      const xm = (c.x + c.x2) / 2;
+      if (c.k === 'graph') {
+        p.T(xm, 250, GV[C.gval] || GV.nd, 2.2, 1, 2);
+        for (let v = 0; v <= gmax + 1e-9; v += gstep) p.T(gx0 + v * sx, 244.5, String(v), 1.8, 1, 2);
+      } else if (c.l.length === 1) p.T(xm, 248, c.l[0], 2.0, 1, 2, c.w - 1.5);
+      else { p.T(xm, 250.5, c.l[0], 2.0, 1, 2, c.w - 1.2); p.T(xm, 245.5, c.l[1], 1.9, 1, 2, c.w - 1.2); }
+    }
+    /* 標尺 */
+    const sc = col.scale;
+    for (let i = Math.ceil(top * 5 - 1e-9); i <= Math.floor(bot * 5 + 1e-9); i++) {
+      const d = i / 5, y = Y(d), major = i % 5 === 0;
+      p.L(sc.x2 - (major ? 3 : 1.5), y, sc.x2, y, 'GRID', major ? 7 : 8);
+      if (major && y < HEAD_B - 1.6 && y > yBot + 1.6) p.T(sc.x + 1, y, String(d), 2.0, 0, 2, 5);
+      if (major && d > top && d < bot) {
+        p.L(col.dep.x, y, X1, y, 'GRID', 8);
+      }
+    }
+    /* グラフ目盛 */
+    for (let v = gstep; v < gmax + 1e-9; v += gstep) p.L(gx0 + v * sx, FOOT_T, gx0 + v * sx, HEAD_B, 'GRID', 8);
+    p.L(gx0, FOOT_T, gx0, HEAD_B, 'GRID', 7);
+    /* 地下水位 */
+    if (gwl != null && inPg(gwl)) {
+      const y = Y(gwl), cx = sc.x + 3;
+      p.L(cx - 1.6, y + 2.2, cx + 1.6, y + 2.2, 'DATA', 5); p.L(cx - 1.6, y + 2.2, cx, y, 'DATA', 5); p.L(cx + 1.6, y + 2.2, cx, y, 'DATA', 5);
+      p.L(sc.x + 0.8, y, sc.x2 - 0.8, y, 'DATA', 5);
+    }
+    /* 土質欄 */
+    if (C.showLayers) {
+      let ltop = 0;
+      for (const l of layers) {
+        const a = Math.max(ltop, top), b = Math.min(l.d, bot);
+        if (b > a) {
+          const ya = Y(a), yb = Y(b), ym = (ya + yb) / 2;
+          if (inPg(l.d)) {
+            const y = Y(l.d);
+            p.L(col.elev.x, y, col.note.x2, y, 'FRAME');
+            const th = 1.9, yt = y + 0.5;
+            if (elev != null) p.T(col.elev.x2 - 0.8, yt, f2(elev - l.d), th, 2, 1, col.elev.w - 1.5);
+            p.T(col.thick.x2 - 0.8, yt, f2(l.d - ltop), th, 2, 1, col.thick.w - 1.5);
+            p.T(col.ldep.x2 - 0.8, yt, f2(l.d), th, 2, 1, col.ldep.w - 1.5);
+          }
+          const sh = Math.min(2.3, Math.max(1.6, (ya - yb) * 0.6));
+          const sl = wrapText(l.soil, col.soil.w - 2, sh).slice(0, Math.max(1, Math.floor((ya - yb) / (sh * 1.5))));
+          sl.forEach((s, i) => p.T((col.soil.x + col.soil.x2) / 2, ym + ((sl.length - 1) / 2 - i) * sh * 1.5, s, sh, 1, 2, col.soil.w - 1.5));
+          if (ltop >= top - 1e-9) {
+            const nh = 1.9, nl = wrapText(l.note, col.note.w - 2.4, nh);
+            const startY = Y(ltop) - 0.8;
+            nl.forEach((s, i) => { const y = startY - i * nh * 1.5; if (y - nh > Math.max(yb, yBot)) p.T(col.note.x + 1.2, y, s, nh, 0, 3, col.note.w - 2.4); });
+          }
+        }
+        ltop = l.d;
+      }
+    }
+    /* データ欄・グラフ */
+    for (const r of rows) {
+      if (r.bot <= top + 1e-9 || r.top >= bot - 1e-9) continue;
+      const a = Math.max(r.top, top), b = Math.min(r.bot, bot), ya = Y(a), yb = Y(b), ym = (ya + yb) / 2;
+      const h = Math.min(2.0, (ya - yb) * 0.72);
+      if (b === r.bot) p.L(col.dep.x, yb, col.graph.x, yb, 'GRID', 8);
+      if (r.bot <= bot + 1e-9) {
+        p.T(col.dep.x2 - 1, ym, f2(r.bot), h, 2, 2, col.dep.w - 1.5, 'DATA');
+        p.T(col.ndm.x2 - 1.5, ym, fN(r.ndm), h, 2, 2, col.ndm.w - 2, 'DATA');
+        if (r.mv != null) p.T(col.mv.x2 - 1.5, ym, fN(r.mv), h, 2, 2, col.mv.w - 2, 'DATA');
+        p.T(col.nd.x2 - 1.5, ym, fN(r.nd), h, 2, 2, col.nd.w - 2, 'DATA');
+        if (C.showN) p.T(col.n.x2 - 1.5, ym, fN(r.n), h, 2, 2, col.n.w - 2, 'DATA');
+      }
+      const val = r[gv], v = Math.min(val, gmax), xv = gx0 + v * sx;
+      if (C.graph === 'bar') {
+        if (v > 0) { p.S(gx0, yb, xv, ya, 'GRAPH_FILL', 9); p.R(gx0, yb, xv, ya, 'GRAPH', 5); }
+      }
+      if (val > gmax) p.T(g.x2 - 0.3, ym, fN(val), Math.min(1.6, h), 2, 2, g.x2 - gx1 - 0.4, 'GRAPH', 1);
+    }
+    const vis = rows.filter(r => { const m = (r.top + r.bot) / 2; return m >= top && m <= bot; });
+    const ptsOf = key => vis.map(r => [gx0 + Math.min(r[key], gmax) * sx, Y((r.top + r.bot) / 2)]);
+    if (C.gRef && gv !== 'ndm') {
+      const q = ptsOf('ndm');
+      for (let i = 1; i < q.length; i++) p.L(q[i - 1][0], q[i - 1][1], q[i][0], q[i][1], 'GRAPH_REF', 8, 'DASHED');
+    }
+    if (C.graph !== 'bar') {
+      const q = ptsOf(gv), dr = Math.min(0.55, mpm * 0.2 * 0.3);
+      for (let i = 1; i < q.length; i++) p.L(q[i - 1][0], q[i - 1][1], q[i][0], q[i][1], 'GRAPH', 5);
+      if (C.graph === 'line') for (const o of q) p.D(o[0], o[1], dr, 'GRAPH', 5);
+    }
+    /* 試験終了 */
+    if (rows.length && endD > top && endD <= bot + 1e-9) {
+      const y = Y(endD);
+      p.L(col.dep.x, y, X1, y, 'DATA', 7);
+      p.T(gx0 + 1, y - 0.8, `試験終了 GL-${f2(endD)}m${pt.info.end ? '（' + pt.info.end + '）' : ''}`, 2.0, 0, 3, g.x2 - gx0 - 2, 'DATA');
+    }
+    /* フッター */
+    const kTxt = `修正Nd = Ndm − ${String(C.k).trim() || k}Mv` + (C.showN || gv === 'n' ? `、換算N値 = ${String(C.alpha).trim() || al}×修正Nd` : '') + (C.gRef && gv !== 'ndm' ? '（破線：測定Ndm）' : '');
+    p.T(X0 + 2, 13, kTxt, 2.0, 0, 2, 110);
+    p.T(X1 - 2, 13, C.company, 2.2, 2, 2, 60);
+    p.T(X0 + 2 + 112, 13, `縮尺 1:${scale}`, 2.0, 0, 2, 20);
+    out.push(p.E);
+  }
+  return out;
+}
+
+/* ---------------- 簡易柱状図（断面図貼付用, 単位 m） ---------------- */
+const PATS = [['auto', '自動'], ['sand', '砂'], ['gravel', '礫'], ['sg', '砂礫'], ['clay', '粘性土'], ['silt', 'シルト'], ['fill', '盛土・埋土'], ['rock', '岩'], ['top', '表土・腐植土'], ['none', '模様なし']];
+const PKEY = [['砂礫', 'sg'], ['礫', 'gravel'], ['粘性土', 'clay'], ['粘土', 'clay'], ['シルト', 'silt'], ['ローム', 'clay'], ['砂', 'sand'], ['盛土', 'fill'], ['埋土', 'fill'], ['表土', 'top'], ['腐植', 'top'], ['岩', 'rock']];
+function patOf(l) {
+  if (l.pat && l.pat !== 'auto') return l.pat;
+  const s = String(l.soil || ''); let best = 'none', be = -1, bl = 0;
+  for (const [k, v] of PKEY) { const i = s.lastIndexOf(k); if (i < 0) continue; const e = i + k.length; if (e > be || (e === be && k.length > bl)) { best = v; be = e; bl = k.length; } }
+  return best;
+}
+function clipSeg(x1, y1, x2, y2, xa, xb, ya, yb) {
+  let t0 = 0, t1 = 1; const dx = x2 - x1, dy = y2 - y1;
+  for (const [pp, q] of [[-dx, x1 - xa], [dx, xb - x1], [-dy, y1 - ya], [dy, yb - y1]]) {
+    if (pp === 0) { if (q < 0) return null; continue; }
+    const t = q / pp;
+    if (pp < 0) { if (t > t1) return null; if (t > t0) t0 = t; } else { if (t < t0) return null; if (t < t1) t1 = t; }
+  }
+  return [x1 + t0 * dx, y1 + t0 * dy, x1 + t1 * dx, y1 + t1 * dy];
+}
+function hatch(p, x0, x1, yT, yB, kind) {
+  const LY = 'DOSHITSU', W = x1 - x0, H = yT - yB;
+  const grid = (dx, dy, fn) => { let row = 0; for (let y = yT - dy / 2; y > yB + dy * 0.2; y -= dy, row++) for (let x = x0 + (row % 2 ? dx * 0.25 : dx * 0.75); x < x1 - dx * 0.15; x += dx) fn(x, y, row); };
+  const diag = (sp, dir) => {
+    for (let c = -H; c < W; c += sp) {
+      const s2 = dir > 0 ? clipSeg(x0 + c, yB, x0 + c + H + W, yB + H + W, x0, x1, yB, yT) : clipSeg(x1 - c, yB, x1 - c - H - W, yB + H + W, x0, x1, yB, yT);
+      if (s2 && Math.hypot(s2[2] - s2[0], s2[3] - s2[1]) > 0.005) p.L(s2[0], s2[1], s2[2], s2[3], LY);
+    }
+  };
+  const ring = (x, y) => { if (y - 0.035 > yB && y + 0.035 < yT) p.C(x, y, 0.035, LY); };
+  if (kind === 'sand') grid(0.125, 0.136, (x, y) => p.D(x, y, 0.0113, LY));
+  else if (kind === 'gravel') grid(0.15, 0.15, ring);
+  else if (kind === 'sg') grid(0.15, 0.12, (x, y, r) => { if (r % 2) p.D(x, y, 0.0113, LY); else ring(x, y); });
+  else if (kind === 'clay') grid(0.15, 0.1, (x, y) => p.L(x - 0.045, y, x + 0.045, y, LY));
+  else if (kind === 'silt') grid(0.15, 0.1, (x, y, r) => { if (r % 2) p.D(x, y, 0.0113, LY); else p.L(x - 0.045, y, x + 0.045, y, LY); });
+  else if (kind === 'fill') diag(0.1, 1);
+  else if (kind === 'rock') { diag(0.15, 1); diag(0.15, -1); }
+  else if (kind === 'top') { for (let y = yT - 0.1; y > yB + 0.02; y -= 0.1) p.L(x0, y, x1, y, LY); }
+}
+function buildSimple(pt, C, ox = 0) {
+  const rows = computed(pt, C);
+  const layers = pt.layers.map(l => ({ d: num(l.d), soil: l.soil, pat: l.pat })).filter(l => l.d != null).sort((a, b) => a.d - b.d);
+  const elev = num(pt.info.elev), base = C.sBase !== 'zero' && elev != null ? elev : 0;
+  const soil = !!C.showLayers;
+  const endD = rows.length ? rows[rows.length - 1].bot : 0;
+  const L = Math.max(endD, soil && layers.length ? layers[layers.length - 1].d : 0) || 1;
+  const Y = d => base - d, X = x => x + ox, top = Y(0), btm = Y(L);
+  const p = Pen(), gv = GV[C.gval] ? C.gval : 'nd', gmax = num(C.gmax) || 50, gstep = gmax <= 20 ? 5 : 10;
+  const SX = 0.6, gx0 = 0.856, gw = 2.5, gx1 = gx0 + gw, sx = gw / gmax;
+  /* 見出し */
+  const lx = soil ? SX : gx0, tx = lx + 0.1;
+  p.L(X(lx), top, X(lx), top + 2.019, 'WAKU'); p.L(X(lx), top + 2.019, X(3.685), top + 2.019, 'WAKU');
+  p.T(X(tx), top + 2.1, pt.info.name || '', 0.512, 0, 0, 3.6, 'MOJI');
+  let ty = top + 1.94;
+  if (elev != null) { p.T(X(tx), ty, `${C.ebase ?? 'T.P.'} ${f2(elev)}m`.trim(), 0.272, 0, 3, 2.9, 'MOJI'); ty -= 0.35; }
+  p.T(X(tx), ty, `L=${f2(L)}m`, 0.272, 0, 3, 2.9, 'MOJI');
+  p.T(X(gx0 + gw / 2), top + 0.42, GV[gv], 0.272, 1, 1, gw, 'MOJI');
+  for (let v = 0; v <= gmax + 1e-9; v += gstep) p.T(X(gx0 + v * sx), top + 0.08, String(v), 0.224, 1, 1, null, 'MOJI');
+  /* グラフ枠・補助線 */
+  p.R(X(gx0), btm, X(gx1), top, 'WAKU');
+  for (let v = gstep; v < gmax - 1e-9; v += gstep) p.L(X(gx0 + v * sx), top, X(gx0 + v * sx), btm, 'HOJO');
+  /* 土層 */
+  const dl = new Set([0, L]);
+  if (soil) {
+    p.R(X(0), btm, X(SX), top, 'WAKU');
+    const hp = { L: (a, b, c, d, ly) => p.L(X(a), b, X(c), d, ly), D: (a, b, r, ly) => p.D(X(a), b, r, ly), C: (a, b, r, ly) => p.C(X(a), b, r, ly) };
+    let lt = 0;
+    for (const l of layers) {
+      const lb = Math.min(l.d, L); if (lb <= lt) continue;
+      hatch(hp, 0, SX, Y(lt), Y(lb), patOf(l));
+      if (lb < L) p.L(X(0), Y(lb), X(SX), Y(lb), 'WAKU');
+      dl.add(lb); lt = lb;
+    }
+  }
+  const dlx = soil ? -0.06 : gx0 - 0.06;
+  [...dl].sort((a, b) => a - b).forEach(d => p.T(X(dlx), Y(d), f2(d), 0.24, 2, 2, null, 'MOJI'));
+  /* 値 */
+  const pts = rows.map(r => ({ r, v: r[gv], x: gx0 + Math.min(r[gv], gmax) * sx, y: Y((r.top + r.bot) / 2) }));
+  if (C.gRef && gv !== 'ndm') {
+    const q = rows.map(r => [gx0 + Math.min(r.ndm, gmax) * sx, Y((r.top + r.bot) / 2)]);
+    for (let i = 1; i < q.length; i++) p.L(X(q[i - 1][0]), q[i - 1][1], X(q[i][0]), q[i][1], 'NCHI_REF', 8, 'DASHED');
+  }
+  if (C.graph === 'bar') { for (const o of pts) if (o.v > 0) { p.S(X(gx0), Y(o.r.bot), X(o.x), Y(o.r.top), 'NCHI_FILL', 9); p.R(X(gx0), Y(o.r.bot), X(o.x), Y(o.r.top), 'NCHI'); } }
+  else {
+    for (let i = 1; i < pts.length; i++) p.L(X(pts[i - 1].x), pts[i - 1].y, X(pts[i].x), pts[i].y, 'NCHI');
+    if (C.graph === 'line') for (const o of pts) p.C(X(o.x), o.y, 0.0384, 'NCHI');
+  }
+  for (const o of pts) {
+    if (o.v > gmax && C.sLabel !== 'none') p.T(X(gx1 + 0.084), o.y, '→' + fN(o.v), 0.224, 0, 2, null, 'NCHI');
+    else if (C.sLabel === 'all') p.T(X(o.x + 0.084), o.y, fN(o.v), 0.224, 0, 2, null, 'NCHI');
+  }
+  return p.E;
+}
+function bboxOf(E) {
+  let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
+  const add = (x, y) => { a = Math.min(a, x); b = Math.min(b, y); c = Math.max(c, x); d = Math.max(d, y); };
+  for (const e of E) {
+    if (e.t === 'L' || e.t === 'S') { add(e.x1, e.y1); add(e.x2, e.y2); }
+    else if (e.t === 'C' || e.t === 'D') { add(e.x - e.r, e.y - e.r); add(e.x + e.r, e.y + e.r); }
+    else if (e.t === 'T') { const w = tw(e.s, e.h) * e.wf, x0 = e.x - w * [0, 0.5, 1][e.ha], y0 = e.y - e.h * [0, 0, 0.5, 1][e.va]; add(x0, y0 - e.h * 0.2); add(x0 + w, y0 + e.h); }
+  }
+  return [a, b, c, d];
+}
+
+/* ---------------- SVG プレビュー ---------------- */
+const ACI = { 1: '#d32f2f', 5: '#1f5fbf', 7: '#111', 8: '#9a9a9a', 9: '#cfd8e6' };
+const SW = { FRAME: 0.3, GRID: 0.12, DATA: 0.25, GRAPH: 0.18, WAKU: 0.3, HOJO: 0.12, NCHI: 0.3, NCHI_REF: 0.15, DOSHITSU: 0.12 };
+function toSVG(E, opt = {}) {
+  const bb = opt.bb || [0, 0, 210, 297], m = opt.sw || 1, H = bb[3], ox = bb[0], o = [];
+  E = E.map(e => { const n = { ...e }; for (const k of ['x', 'x1', 'x2']) if (k in n) n[k] -= ox; return n; });
+  for (const e of E) {
+    const col = ACI[e.c ?? 7] || '#111';
+    if (e.t === 'L') o.push(`<line x1="${e.x1.toFixed(4)}" y1="${(H - e.y1).toFixed(4)}" x2="${e.x2.toFixed(4)}" y2="${(H - e.y2).toFixed(4)}" stroke="${col}" stroke-width="${((e.ly === 'GRID' && e.c !== 7 ? 0.1 : (SW[e.ly] || 0.2)) * m).toFixed(4)}"${e.lt === 'DASHED' ? ` stroke-dasharray="${m * 1} ${m * 0.5}"` : ''} stroke-linecap="round"/>`);
+    else if (e.t === 'D') o.push(`<circle cx="${e.x.toFixed(4)}" cy="${(H - e.y).toFixed(4)}" r="${e.r.toFixed(4)}" fill="${col}"/>`);
+    else if (e.t === 'S') o.push(`<rect x="${Math.min(e.x1, e.x2).toFixed(4)}" y="${(H - Math.max(e.y1, e.y2)).toFixed(4)}" width="${Math.abs(e.x2 - e.x1).toFixed(4)}" height="${Math.abs(e.y2 - e.y1).toFixed(4)}" fill="${col}"/>`);
+    else if (e.t === 'C') o.push(`<circle cx="${e.x.toFixed(4)}" cy="${(H - e.y).toFixed(4)}" r="${e.r}" fill="#fff" stroke="${col}" stroke-width="${(0.18 * m).toFixed(4)}"/>`);
+    else if (e.t === 'T') {
+      const anchor = ['start', 'middle', 'end'][e.ha];
+      const dy = [0, 0, 0.36, 0.86][e.va] * e.h;
+      const y = H - e.y + dy;
+      const tr = e.wf < 0.999 ? ` transform="translate(${e.x.toFixed(4)} 0) scale(${e.wf.toFixed(3)} 1) translate(${(-e.x).toFixed(4)} 0)"` : '';
+      o.push(`<text x="${e.x.toFixed(4)}" y="${y.toFixed(4)}" font-size="${(e.h * 1.08).toFixed(4)}" text-anchor="${anchor}" fill="${col}"${tr}>${esc(e.s)}</text>`);
+    }
+  }
+  const vb = `0 0 ${(bb[2] - bb[0]).toFixed(3)} ${(bb[3] - bb[1]).toFixed(3)}`;
+  return `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg" font-family="'MS Gothic','Noto Sans JP',sans-serif">${o.join('')}</svg>`;
+}
+
+/* ---------------- DXF（R12, Shift_JIS） ---------------- */
+const LAYERS = { FRAME: 7, GRID: 8, TEXT: 7, DATA: 7, GRAPH: 5, GRAPH_REF: 8, GRAPH_FILL: 9, WAKU: 7, MOJI: 7, NCHI: 7, NCHI_REF: 8, NCHI_FILL: 9, HOJO: 8, DOSHITSU: 7 };
+function sjisSafe(s) { return String(s).replace(/−/g, '-').replace(/[～〜]/g, '～').replace(/·/g, '・'); }
+function buildDXF(sheets) { // sheets: [{E, ox, oy}]
+  const o = []; const g = (c, v) => { o.push(String(c)); o.push(typeof v === 'number' ? (Math.round(v * 10000) / 10000).toString() : String(v)); };
+  let nx = Infinity, ny = Infinity, mx = -Infinity, my = -Infinity; const used = new Set();
+  for (const s of sheets) { const b = bboxOf(s.E); nx = Math.min(nx, b[0] + s.ox); ny = Math.min(ny, b[1] + s.oy); mx = Math.max(mx, b[2] + s.ox); my = Math.max(my, b[3] + s.oy); s.E.forEach(e => used.add(e.ly)); }
+  if (!isFinite(nx)) { nx = ny = 0; mx = my = 1; }
+  const lays = Object.entries(LAYERS).filter(([n]) => used.has(n));
+  g(0, 'SECTION'); g(2, 'HEADER');
+  g(9, '$ACADVER'); g(1, 'AC1009');
+  g(9, '$DWGCODEPAGE'); g(3, 'ANSI_932');
+  g(9, '$INSBASE'); g(10, 0); g(20, 0); g(30, 0);
+  g(9, '$EXTMIN'); g(10, nx); g(20, ny); g(30, 0);
+  g(9, '$EXTMAX'); g(10, mx); g(20, my); g(30, 0);
+  g(9, '$LIMMIN'); g(10, nx); g(20, ny);
+  g(9, '$LIMMAX'); g(10, mx); g(20, my);
+  g(9, '$TEXTSTYLE'); g(7, 'JP');
+  g(0, 'ENDSEC');
+  g(0, 'SECTION'); g(2, 'TABLES');
+  g(0, 'TABLE'); g(2, 'LTYPE'); g(70, 2);
+  g(0, 'LTYPE'); g(2, 'CONTINUOUS'); g(70, 0); g(3, 'Solid line'); g(72, 65); g(73, 0); g(40, 0);
+  g(0, 'LTYPE'); g(2, 'DASHED'); g(70, 0); g(3, '__ __ __'); g(72, 65); g(73, 2); g(40, 1.5); g(49, 1.0); g(49, -0.5);
+  g(0, 'ENDTAB');
+  g(0, 'TABLE'); g(2, 'LAYER'); g(70, lays.length + 1);
+  g(0, 'LAYER'); g(2, '0'); g(70, 0); g(62, 7); g(6, 'CONTINUOUS');
+  for (const [n, c] of lays) { g(0, 'LAYER'); g(2, n); g(70, 0); g(62, c); g(6, 'CONTINUOUS'); }
+  g(0, 'ENDTAB');
+  g(0, 'TABLE'); g(2, 'STYLE'); g(70, 2);
+  g(0, 'STYLE'); g(2, 'STANDARD'); g(70, 0); g(40, 0); g(41, 1); g(50, 0); g(71, 0); g(42, 2.5); g(3, 'txt'); g(4, '');
+  g(0, 'STYLE'); g(2, 'JP'); g(70, 0); g(40, 0); g(41, 1); g(50, 0); g(71, 0); g(42, 2.5); g(3, 'txt.shx'); g(4, 'extfont2.shx');
+  g(0, 'ENDTAB');
+  g(0, 'ENDSEC');
+  g(0, 'SECTION'); g(2, 'BLOCKS'); g(0, 'ENDSEC');
+  g(0, 'SECTION'); g(2, 'ENTITIES');
+  for (const { E, ox, oy } of sheets) for (const e of E) {
+    const head = t => { g(0, t); g(8, e.ly); if (e.c != null && e.c !== LAYERS[e.ly]) g(62, e.c); };
+    if (e.t === 'L') { head('LINE'); if (e.lt) g(6, e.lt); g(10, e.x1 + ox); g(20, e.y1 + oy); g(30, 0); g(11, e.x2 + ox); g(21, e.y2 + oy); g(31, 0); }
+    else if (e.t === 'D') {
+      head('POLYLINE'); g(66, 1); g(10, 0); g(20, 0); g(30, 0); g(70, 1); g(40, e.r); g(41, e.r);
+      for (const sx of [-1, 1]) { g(0, 'VERTEX'); g(8, e.ly); g(10, e.x + ox + sx * e.r / 2); g(20, e.y + oy); g(30, 0); g(40, e.r); g(41, e.r); g(42, 1); }
+      g(0, 'SEQEND'); g(8, e.ly);
+    }
+    else if (e.t === 'C') { head('CIRCLE'); g(10, e.x + ox); g(20, e.y + oy); g(30, 0); g(40, e.r); }
+    else if (e.t === 'S') {
+      const xa = Math.min(e.x1, e.x2) + ox, xb = Math.max(e.x1, e.x2) + ox, ya = Math.min(e.y1, e.y2) + oy, yb = Math.max(e.y1, e.y2) + oy;
+      head('SOLID'); g(10, xa); g(20, ya); g(30, 0); g(11, xb); g(21, ya); g(31, 0); g(12, xa); g(22, yb); g(32, 0); g(13, xb); g(23, yb); g(33, 0);
+    } else if (e.t === 'T') {
+      head('TEXT'); g(10, e.x + ox); g(20, e.y + oy); g(30, 0); g(40, e.h); g(1, sjisSafe(e.s));
+      if (e.wf < 0.999) g(41, e.wf);
+      g(7, 'JP');
+      if (e.ha) g(72, e.ha);
+      if (e.ha || e.va) { g(11, e.x + ox); g(21, e.y + oy); g(31, 0); }
+      if (e.va) g(73, e.va);
+    }
+  }
+  g(0, 'ENDSEC'); g(0, 'EOF');
+  const text = o.join('\r\n') + '\r\n';
+  const codes = Encoding.convert(Encoding.stringToCode(text), { to: 'SJIS', from: 'UNICODE' });
+  return new Uint8Array(codes);
+}
+
+/* ---------------- ZIP（無圧縮） ---------------- */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = u => { let c = 0xFFFFFFFF; for (let i = 0; i < u.length; i++) c = CRC[(c ^ u[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], cen = []; let off = 0;
+  const d = new Date(), dt = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate(), tm = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+  for (const f of files) {
+    const nm = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length;
+    const lh = new DataView(new ArrayBuffer(30));
+    [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, tm, 2], [12, dt, 2], [14, crc, 4], [18, sz, 4], [22, sz, 4], [26, nm.length, 2], [28, 0, 2]].forEach(([o, v, n]) => n === 4 ? lh.setUint32(o, v, true) : lh.setUint16(o, v, true));
+    parts.push(new Uint8Array(lh.buffer), nm, f.data);
+    const ch = new DataView(new ArrayBuffer(46));
+    [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, tm, 2], [14, dt, 2], [16, crc, 4], [20, sz, 4], [24, sz, 4], [28, nm.length, 2], [30, 0, 2], [32, 0, 2], [34, 0, 2], [36, 0, 2], [38, 0, 4], [42, off, 4]].forEach(([o, v, n]) => n === 4 ? ch.setUint32(o, v, true) : ch.setUint16(o, v, true));
+    cen.push(new Uint8Array(ch.buffer), nm);
+    off += 30 + nm.length + sz;
+  }
+  const csz = cen.reduce((s, a) => s + a.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  [[0, 0x06054b50, 4], [4, 0, 2], [6, 0, 2], [8, files.length, 2], [10, files.length, 2], [12, csz, 4], [16, off, 4], [20, 0, 2]].forEach(([o, v, n]) => n === 4 ? end.setUint32(o, v, true) : end.setUint16(o, v, true));
+  const all = [...parts, ...cen, new Uint8Array(end.buffer)], tot = all.reduce((s, a) => s + a.length, 0), u = new Uint8Array(tot);
+  let p = 0; for (const a of all) { u.set(a, p); p += a.length; } return u;
+}
+
+/* ---------------- 保存（artifact では downloads 機能、ローカルでは直接） ---------------- */
+let inArtifact = !!(window.claude && window.claude.use), dlP = null;
+const getDl = () => { inArtifact = !!(window.claude && window.claude.use); if (!inArtifact) return Promise.resolve(null); return dlP || (dlP = Promise.resolve().then(() => window.claude.use('downloads')).catch(() => null)); };
+setTimeout(() => { getDl().then(d => { if (inArtifact) $('#dlNote').textContent = d ? 'DXF は zip にまとめて保存されます' : ''; }); }, 0);
+async function saveFile(name, data, allowDirect) {
+  await getDl();
+  if (!inArtifact) {
+    const url = URL.createObjectURL(new Blob([data])); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); return;
+  }
+  const dl = await getDl();
+  if (!dl) { toast('この表示ではファイル保存が使えません。claude.ai でページを開いてください'); return; }
+  let fname = name, d = data;
+  if (!allowDirect) { fname = name.replace(/\.[^.]+$/, '') + '.zip'; d = makeZip([{ name, data: typeof data === 'string' ? new TextEncoder().encode(data) : data }]); }
+  try { await dl.save({ filename: fname, data: d }); toast('保存しました：' + fname); }
+  catch (e) { if (e && e.code !== 'declined') toast('保存できませんでした（' + (e.code || e) + '）'); }
+}
+async function saveDXFs(files, zipName) {
+  await getDl();
+  if (!inArtifact) { for (const f of files) await saveFile(f.name, f.data, true); return; }
+  const dl = await getDl();
+  if (!dl) { toast('この表示ではファイル保存が使えません'); return; }
+  try { await dl.save({ filename: zipName, data: makeZip(files) }); toast('保存しました：' + zipName); }
+  catch (e) { if (e && e.code !== 'declined') toast('保存できませんでした（' + (e.code || e) + '）'); }
+}
+const safeName = s => String(s || 'point').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 60);
+
+/* ---------------- UI ---------------- */
+let toastT;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2600); }
+
+function renderPts() {
+  $('#pts').innerHTML = S.points.map((p, i) => `<button class="chip${i === S.cur ? ' on' : ''}" data-i="${i}">${esc(p.info.name || ('地点' + (i + 1)))}</button>`).join('') +
+    `<button class="sm" id="pAdd">＋地点</button><button class="sm" id="pDup">複製</button><button class="sm" id="pDel">この地点を削除</button>`;
+}
+$('#pts').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.i != null) { S.cur = +b.dataset.i; }
+  else if (b.id === 'pAdd') { S.points.push(blankPoint(S.points.length + 1)); S.cur = S.points.length - 1; }
+  else if (b.id === 'pDup') { const c = JSON.parse(JSON.stringify(P())); c.info.name += '（複製）'; S.points.splice(S.cur + 1, 0, c); S.cur++; }
+  else if (b.id === 'pDel') {
+    if (b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = 'もう一度押すと削除'; setTimeout(() => { b.dataset.arm = ''; b.textContent = 'この地点を削除'; }, 2500); return; }
+    S.points.splice(S.cur, 1); if (!S.points.length) S.points.push(blankPoint(1)); S.cur = Math.max(0, S.cur - 1);
+  }
+  renderAll();
+});
+
+$('#tabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('[data-p]').forEach(p => p.hidden = p.dataset.p !== b.dataset.t);
+});
+
+const DCOLS = [['d', '深度<br>GL-(m)'], ['b', '打撃回数<br>(回)'], ['p', '貫入量<br>(mm)'], ['mv', 'トルク Mv<br>(N・m)']];
+function renderData() {
+  const C = S.common;
+  $('#gData').innerHTML = `<thead><tr><th>#</th>${DCOLS.map(c => `<th>${c[1]}</th>`).join('')}<th>Ndm</th><th>修正Nd</th>${C.showN ? '<th>換算N</th>' : ''}<th></th></tr></thead><tbody>` +
+    P().rows.map((r, i) => { const c = calcRow(r, C);
+      return `<tr data-r="${i}"><td class="i">${i + 1}</td>${DCOLS.map(([k], j) => `<td><input data-k="${k}" data-c="${j}" value="${esc(r[k])}" inputmode="decimal" ${k === 'p' ? 'placeholder="200"' : ''}></td>`).join('')}<td class="c" data-o="ndm">${c ? fN(c.ndm) : ''}</td><td class="c" data-o="nd"><b>${c ? fN(c.nd) : ''}</b></td>${C.showN ? `<td class="c" data-o="n">${c ? fN(c.n) : ''}</td>` : ''}<td class="x"><button data-del="${i}" aria-label="${i + 1}行目を削除">×</button></td></tr>`; }).join('') +
+    `</tbody>`;
+  if (!P().rows.length) $('#gData').innerHTML += `<tbody><tr><td colspan="9" class="note" style="padding:14px">データがありません。「＋10行」で行を作るか、Excel から貼り付け／読込してください。</td></tr></tbody>`;
+  renderSum();
+}
+function renderSum() {
+  const rows = computed(P(), S.common);
+  if (!rows.length) { $('#sum').innerHTML = ''; return; }
+  const mx = rows.reduce((m, r) => r.nd > m.nd ? r : m, rows[0]);
+  $('#sum').innerHTML = `<span>測定区間 <b>${rows.length}</b></span><span>終了深度 <b>GL-${f2(rows[rows.length - 1].bot)}m</b></span><span>最大 修正Nd <b>${fN(mx.nd)}</b>（GL-${f2(mx.bot)}m）</span><span>シート数 <b>${Math.max(1, Math.ceil(rows[rows.length - 1].bot / Math.floor((HEAD_B - FOOT_T) / (1000 / (num(S.common.scale) || 50))) - 1e-9))}</b></span>`;
+}
+function updRowCalc(tr) {
+  const r = P().rows[+tr.dataset.r], c = calcRow(r, S.common);
+  tr.querySelector('[data-o=ndm]').textContent = c ? fN(c.ndm) : '';
+  tr.querySelector('[data-o=nd]').innerHTML = c ? `<b>${fN(c.nd)}</b>` : '';
+  const n = tr.querySelector('[data-o=n]'); if (n) n.textContent = c ? fN(c.n) : '';
+}
+function nextDepth(rows) { const last = rows.length ? num(rows[rows.length - 1].d) : 0; const step = num($('#rnStep').value) || 0.2; return f2((last ?? 0) + step); }
+function addRows(n) { const rs = P().rows; for (let i = 0; i < n; i++) rs.push({ d: nextDepth(rs), b: '', p: '', mv: '' }); }
+const gData = $('#gData');
+gData.addEventListener('input', e => {
+  const t = e.target; if (!t.dataset.k) return; const tr = t.closest('tr');
+  P().rows[+tr.dataset.r][t.dataset.k] = t.value; updRowCalc(tr); renderSum(); schedule();
+});
+gData.addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (!b) return; P().rows.splice(+b.dataset.del, 1); renderData(); schedule(); });
+gData.addEventListener('keydown', e => {
+  const t = e.target; if (!t.dataset.k) return;
+  const tr = t.closest('tr'), r = +tr.dataset.r, c = t.dataset.c;
+  let to = null;
+  if (e.key === 'Enter' || e.key === 'ArrowDown') { to = r + 1; if (to >= P().rows.length && e.key === 'Enter') { addRows(1); renderData(); schedule(); } }
+  else if (e.key === 'ArrowUp') to = r - 1;
+  if (to != null) { e.preventDefault(); const el = gData.querySelector(`tr[data-r="${to}"] input[data-c="${c}"]`); if (el) { el.focus(); el.select(); } }
+});
+gData.addEventListener('paste', e => {
+  const t = e.target; if (!t.dataset.k) return;
+  const txt = (e.clipboardData || window.clipboardData).getData('text'); if (!/[\t\n]/.test(txt.trim())) return;
+  e.preventDefault();
+  const lines = txt.replace(/\r/g, '').replace(/\n$/, '').split('\n').map(l => l.split('\t'));
+  const r0 = +t.closest('tr').dataset.r, c0 = +t.dataset.c, rs = P().rows;
+  lines.forEach((cells, i) => {
+    while (rs.length <= r0 + i) rs.push({ d: '', b: '', p: '', mv: '' });
+    cells.forEach((v, j) => { const k = DCOLS[c0 + j]?.[0]; if (k) rs[r0 + i][k] = String(v).trim(); });
+  });
+  fillDepths(rs); renderData(); schedule(); toast(`${lines.length} 行を貼り付けました`);
+});
+function fillDepths(rs) {
+  const step = num($('#rnStep').value) || 0.2; let prev = num($('#rnStart').value) || 0;
+  for (const r of rs) { const d = num(r.d); if (d == null && num(r.b) != null) r.d = f2(prev + step); prev = num(r.d) ?? prev + step; }
+}
+$('#bAdd1').onclick = () => { addRows(1); renderData(); schedule(); };
+$('#bAdd10').onclick = () => { addRows(10); renderData(); schedule(); };
+$('#bClear').onclick = e => {
+  const b = e.currentTarget;
+  if (b.dataset.arm !== '1') { b.dataset.arm = '1'; b.textContent = 'もう一度押すと全削除'; setTimeout(() => { b.dataset.arm = ''; b.textContent = '全削除'; }, 2500); return; }
+  b.dataset.arm = ''; b.textContent = '全削除'; P().rows = []; renderData(); schedule();
+};
+$('#bRenum').onclick = () => {
+  const s = num($('#rnStart').value) || 0, st = num($('#rnStep').value) || 0.2;
+  P().rows.forEach((r, i) => r.d = f2(s + st * (i + 1))); renderData(); schedule(); toast('深度を振り直しました');
+};
+
+/* 土質 */
+function renderLayers() {
+  const L = P().layers;
+  $('#gLayer').innerHTML = `<thead><tr><th>#</th><th>下端深度<br>GL-(m)</th><th>推定土質</th><th>柱状模様</th><th>記事</th><th></th></tr></thead><tbody>` +
+    L.map((l, i) => `<tr data-r="${i}"><td class="i">${i + 1}</td><td style="width:6.5em"><input data-k="d" value="${esc(l.d)}" inputmode="decimal"></td><td style="width:8em"><input class="t" data-k="soil" value="${esc(l.soil)}"></td><td style="width:8em"><select class="mini" style="width:100%;border:0;background:transparent" data-k="pat">${PATS.map(([v, t]) => `<option value="${v}" ${(l.pat || 'auto') === v ? 'selected' : ''}>${v === 'auto' ? '自動：' + (PATS.find(q => q[0] === patOf({ soil: l.soil }))?.[1] || '') : t}</option>`).join('')}</select></td><td><input class="t" data-k="note" value="${esc(l.note)}"></td><td class="x"><button data-del="${i}" aria-label="${i + 1}層目を削除">×</button></td></tr>`).join('') + '</tbody>';
+  if (!L.length) $('#gLayer').innerHTML += `<tbody><tr><td colspan="6" class="note" style="padding:14px">層がありません。土質欄が不要なら「共通設定」で非表示にできます。</td></tr></tbody>`;
+}
+$('#gLayer').addEventListener('input', e => { const t = e.target; if (!t.dataset.k) return; P().layers[+t.closest('tr').dataset.r][t.dataset.k] = t.value; schedule(); });
+$('#gLayer').addEventListener('change', e => { if (e.target.dataset.k === 'soil') renderLayers(); });
+$('#gLayer').addEventListener('click', e => { const b = e.target.closest('[data-del]'); if (!b) return; P().layers.splice(+b.dataset.del, 1); renderLayers(); schedule(); });
+$('#bLAdd').onclick = () => { const L = P().layers; const last = L.length ? num(L[L.length - 1].d) || 0 : 0; L.push({ d: f2(last + 1), soil: '', note: '', pat: 'auto' }); renderLayers(); schedule(); };
+
+/* 地点情報・設定フォーム */
+const INFO = [['name', '調査地点'], ['loc', '調査位置'], ['elev', '孔口標高 (m)', 'decimal'], ['date', '調査年月日'], ['weather', '天候'], ['tester', '試験者'], ['gwl', '孔内水位 GL-(m)', 'decimal'], ['end', '終了理由']];
+function renderInfo() {
+  $('#fInfo').innerHTML = INFO.map(([k, l, im]) => `<label for="in_${k}">${l}</label><input id="in_${k}" data-k="${k}" value="${esc(P().info[k])}" ${im ? `inputmode="${im}"` : ''} ${k === 'end' ? 'placeholder="例：貫入不能、所定深度"' : ''}>`).join('');
+}
+$('#fInfo').addEventListener('input', e => { const k = e.target.dataset.k; if (!k) return; P().info[k] = e.target.value; if (k === 'name') renderPts(); schedule(); });
+function renderSet() {
+  const C = S.common;
+  $('#fSet').innerHTML = `
+    <label for="s_job">業務名</label><input id="s_job" data-k="job" value="${esc(C.job)}">
+    <label for="s_company">会社名</label><input id="s_company" data-k="company" value="${esc(C.company)}">
+    <label for="s_method">試験方法</label><input id="s_method" data-k="method" value="${esc(C.method)}">
+    <label for="s_k">トルク補正係数</label><input id="s_k" data-k="k" value="${esc(C.k)}" inputmode="decimal">
+    <p class="note full">修正Nd = Ndm − 係数 × Mv（Mv は N・m）。既定 0.04。トルク欄が空欄の区間は Mv = 0 として計算します。貫入量が 200mm 以外の区間は Ndm = 打撃回数 × 200 ／ 貫入量 に換算します。</p>
+    <label for="s_scale">深度縮尺</label><select id="s_scale" data-k="scale"><option value="50">1:50（11m／枚）</option><option value="100">1:100（22m／枚）</option></select>
+    <label for="s_gmax">グラフ最大値</label><select id="s_gmax" data-k="gmax">${[20, 30, 50, 60, 100].map(v => `<option>${v}</option>`).join('')}</select>
+    <label for="s_gval">グラフの値</label><select id="s_gval" data-k="gval"><option value="nd">修正Nd値（トルク補正後）</option><option value="ndm">測定Ndm（補正前）</option><option value="n">換算N値</option></select>
+    <label for="s_graph">グラフ形式</label><select id="s_graph" data-k="graph"><option value="line">折れ線＋●（柱状図のN値グラフ形式）</option><option value="lineonly">折れ線のみ</option><option value="bar">棒グラフ（20cm ごと）</option></select>
+    <span></span><label class="chk"><input type="checkbox" data-k="gRef" ${C.gRef ? 'checked' : ''}>補正前の測定Ndmを灰色破線で重ねる</label>
+    <span></span><label class="chk"><input type="checkbox" data-k="showLayers" ${C.showLayers ? 'checked' : ''}>土層を出力（簡易柱状図：土質柱状／A4 シート：標高・層厚・推定土質・記事欄）</label>
+    <span></span><label class="chk"><input type="checkbox" data-k="showN" ${C.showN ? 'checked' : ''}>換算N値の列を出力</label>
+    <label for="s_alpha">換算N値 係数</label><input id="s_alpha" data-k="alpha" value="${esc(C.alpha)}" inputmode="decimal">
+    <p class="note full">換算N値 = 係数 × 修正Nd。採用する相関式は業務の仕様・発注者協議に合わせて設定してください。</p>
+    <h3 class="full">簡易柱状図（断面図貼付用）</h3>
+    <p class="note full">1 図面単位 = 1m の実寸で描きます（グラフ幅 2.5m）。貼り付け先の縮尺に合わせて CAD で尺度変更してください。</p>
+    <label for="s_sBase">縦位置の基準</label><select id="s_sBase" data-k="sBase"><option value="elev">孔口標高に合わせる（Y = 標高）</option><option value="zero">孔口を Y = 0 に置く</option></select>
+    <label for="s_ebase">標高の表記</label><input id="s_ebase" data-k="ebase" value="${esc(C.ebase ?? 'T.P.')}">
+    <label for="s_sLabel">数値ラベル</label><select id="s_sLabel" data-k="sLabel"><option value="over">最大値超えのみ（→62 の形）</option><option value="all">全点（20cm 間隔では重なりやすい）</option><option value="none">なし</option></select>
+    <label for="s_sGap">全地点の間隔 (m)</label><input id="s_sGap" data-k="sGap" value="${esc(C.sGap ?? '5')}" inputmode="decimal">
+    <p class="note full">「全地点を DXF」で地点を横に並べるときの間隔です。</p>`;
+  $('#s_scale').value = C.scale; $('#s_gmax').value = C.gmax; $('#s_graph').value = C.graph; $('#s_gval').value = C.gval || 'nd'; $('#s_sBase').value = C.sBase || 'elev'; $('#s_sLabel').value = C.sLabel || 'over';
+}
+$('#fSet').addEventListener('input', e => {
+  const t = e.target, k = t.dataset.k; if (!k) return;
+  S.common[k] = t.type === 'checkbox' ? t.checked : t.value;
+  if (['k', 'alpha', 'showN', 'scale'].includes(k)) renderData();
+  if (k === 'showLayers') $('#qSoil').checked = t.checked;
+  schedule();
+});
+
+/* プレビュー */
+let prevT;
+function schedule() { persist(); clearTimeout(prevT); prevT = setTimeout(renderPreview, 120); }
+function renderPreview() {
+  document.querySelectorAll('#seg button').forEach(b => b.classList.toggle('on', b.dataset.out === S.common.out));
+  $('#qSoil').checked = !!S.common.showLayers;
+  if (S.common.out === 'simple') {
+    const E = buildSimple(P(), S.common), b = bboxOf(E), pad = 0.25, bb = [b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad], w = bb[2] - bb[0], h = bb[3] - bb[1];
+    $('#pages').innerHTML = `<div class="sheet" style="aspect-ratio:${w.toFixed(3)}/${h.toFixed(3)};width:min(100%, calc(76vh * ${(w / h).toFixed(4)}))">${toSVG(E, { bb, sw: 0.025 })}</div>`;
+  } else {
+    const sh = buildSheets(P(), S.common);
+    $('#pages').innerHTML = sh.map(E => `<div class="paper">${toSVG(E)}</div>`).join('');
+  }
+}
+$('#seg').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.common.out = b.dataset.out; schedule(); renderPreview(); });
+$('#qSoil').onchange = e => { S.common.showLayers = e.target.checked; renderSet(); schedule(); };
+function renderAll() { renderPts(); renderData(); renderLayers(); renderInfo(); renderSet(); renderPreview(); persist(); }
+
+/* 出力 */
+function dxfForPoint(pt, oy = 0, i = 0) {
+  if (S.common.out === 'simple') return [{ E: buildSimple(pt, S.common), ox: i * (num(S.common.sGap) || 5), oy: 0 }];
+  return buildSheets(pt, S.common).map((E, j) => ({ E, ox: j * 230, oy }));
+}
+const outTag = () => S.common.out === 'simple' ? '_簡易柱状図' : '_柱状図';
+$('#bDxf').onclick = () => {
+  const pt = P(), name = safeName(pt.info.name) + outTag() + '.dxf';
+  if (!computed(pt, S.common).length) { toast('データがありません'); return; }
+  const data = buildDXF(dxfForPoint(pt));
+  saveDXFs([{ name, data }], name.replace(/\.dxf$/, '') + '_DXF.zip');
+};
+$('#bDxfAll').onclick = () => {
+  const sheets = []; S.points.forEach((pt, i) => sheets.push(...dxfForPoint(pt, -i * 320, i)));
+  const name = safeName(S.common.job || 'ram') + outTag() + '_全地点.dxf';
+  const data = buildDXF(sheets);
+  saveDXFs([{ name, data }], name.replace(/\.dxf$/, '') + '_DXF.zip');
+};
+$('#bCsv').onclick = () => {
+  const C = S.common, rows = computed(P(), C);
+  const head = ['上端深度(m)', '下端深度(m)', '打撃回数', '貫入量(mm)', 'Mv(N・m)', 'Ndm', '修正Nd'].concat(C.showN ? ['換算N'] : []);
+  const lines = [head.join(',')].concat(rows.map(r => [f2(r.top), f2(r.bot), r.b, r.pen, r.mv ?? '', fN(r.ndm), fN(r.nd)].concat(C.showN ? [fN(r.n)] : []).join(',')));
+  saveFile(safeName(P().info.name) + '_Nd.csv', '﻿' + lines.join('\r\n'), true);
+};
+$('#bSave').onclick = () => saveFile(safeName(S.common.job || 'ram') + '.ramsounding.json', JSON.stringify(S, null, 1), true);
+$('#bOpen').onclick = () => $('#fProj').click();
+$('#fProj').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const d = JSON.parse(await f.text()); if (!d.points) throw 0; S = d; S.cur = 0; renderAll(); toast('プロジェクトを開きました'); } catch (er) { toast('読み込めないファイルです'); }
+  e.target.value = '';
+};
+
+/* ---------------- Excel / CSV 取込 ---------------- */
+let WB = null, AOA = [];
+const FIELDS = [['d', '深度', /深|depth|GL/i], ['b', '打撃回数', /打撃|回数|Ndm|blow/i], ['p', '貫入量', /貫入|pen/i], ['mv', 'トルク Mv', /トルク|Mv|torque/i]];
+$('#bImport').onclick = () => $('#fXls').click();
+$('#fXls').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const buf = new Uint8Array(await f.arrayBuffer());
+    if (/\.(csv|txt)$/i.test(f.name)) {
+      const enc = Encoding.detect(buf); const str = Encoding.codeToString(Encoding.convert(buf, { to: 'UNICODE', from: enc === 'UTF8' || enc === 'UNICODE' ? 'UTF8' : (enc || 'SJIS') }));
+      WB = XLSX.read(str.replace(/^﻿/, ''), { type: 'string', raw: true });
+    } else WB = XLSX.read(buf, { type: 'array' });
+    $('#iSheet').innerHTML = WB.SheetNames.map((n, i) => `<option value="${i}">${esc(n)}</option>`).join('');
+    loadSheet(0); $('#dImp').showModal();
+  } catch (er) { toast('ファイルを読み込めませんでした'); }
+};
+function loadSheet(i) {
+  const ws = WB.Sheets[WB.SheetNames[i]];
+  AOA = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' }).filter(r => r.some(v => String(v).trim() !== ''));
+  let hr = 0;
+  for (let r = 0; r < Math.min(15, AOA.length); r++) if (AOA[r].some(v => FIELDS.some(f => f[2].test(String(v))) && isNaN(Number(v)))) { hr = r + 1; break; }
+  $('#iHead').value = hr; buildMap();
+}
+function buildMap() {
+  const hr = +$('#iHead').value || 0, head = hr ? AOA[hr - 1] : [];
+  const ncol = Math.max(0, ...AOA.slice(0, 50).map(r => r.length));
+  const L = i => XLSX.utils.encode_col(i) + (head[i] !== undefined && head[i] !== '' ? '：' + String(head[i]).replace(/\s+/g, '') : '');
+  $('#iPrev').innerHTML = '<table>' + AOA.slice(0, 12).map((r, i) => `<tr class="${i === hr - 1 ? 'hd' : ''}"><td>${i + 1}</td>${Array.from({ length: ncol }, (_, j) => `<td>${esc(r[j])}</td>`).join('')}</tr>`).join('') + '</table>';
+  $('#iMap').innerHTML = FIELDS.map(([k, lab, re]) => {
+    let guess = head.findIndex(v => re.test(String(v)));
+    if (guess < 0 && !hr) guess = { d: 0, b: 1, p: -1, mv: -1 }[k];
+    return `<label for="m_${k}">${lab}</label><select id="m_${k}" data-k="${k}"><option value="-1">（なし）</option>${Array.from({ length: ncol }, (_, j) => `<option value="${j}" ${j === guess ? 'selected' : ''}>${esc(L(j))}</option>`).join('')}</select>`;
+  }).join('');
+  $('#iAuto').checked = $('#m_d').value === '-1';
+}
+$('#iSheet').onchange = e => loadSheet(+e.target.value);
+$('#iHead').oninput = buildMap;
+$('#iMap').addEventListener('change', () => { if ($('#m_d').value === '-1') $('#iAuto').checked = true; });
+$('#iCancel').onclick = () => $('#dImp').close();
+$('#iOk').onclick = () => {
+  const hr = +$('#iHead').value || 0, m = Object.fromEntries(FIELDS.map(([k]) => [k, +$('#m_' + k).value]));
+  if (m.b < 0) { toast('打撃回数の列を指定してください'); return; }
+  const rows = [];
+  for (const r of AOA.slice(hr)) {
+    const b = num(r[m.b]); if (b == null) continue;
+    rows.push({ d: m.d >= 0 && num(r[m.d]) != null ? f2(num(r[m.d])) : '', b: String(b), p: m.p >= 0 && num(r[m.p]) != null ? String(num(r[m.p])) : '', mv: m.mv >= 0 && num(r[m.mv]) != null ? String(num(r[m.mv])) : '' });
+  }
+  if (!rows.length) { toast('数値の行が見つかりませんでした'); return; }
+  const dest = $('#iDest').value;
+  if (dest === 'new') { const p = blankPoint(S.points.length + 1); p.rows = rows; S.points.push(p); S.cur = S.points.length - 1; }
+  else if (dest === 'append') P().rows.push(...rows); else P().rows = rows;
+  if ($('#iAuto').checked) fillDepths(P().rows);
+  $('#dImp').close(); renderAll(); toast(`${rows.length} 行を取り込みました`);
+};
+
+window.__ram = { buildSheets, buildDXF, dxfForPoint, get S() { return S; }, makeZip };
+renderAll();
+}
+</script>
+</body>
+</html>
